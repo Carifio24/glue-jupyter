@@ -1,6 +1,6 @@
 import numpy as np
 import bqplot
-from bqplot_image_gl import ImageGL
+from bqplot_image_gl import ImageGL, LinesGL
 
 from glue.core.data import Subset
 from glue.viewers.scatter.state import ScatterLayerState
@@ -43,6 +43,7 @@ class BqplotScatterLayerArtist(LayerArtist):
         self.scatter = bqplot.ScatterGL(scales=self.scales, x=[0, 1], y=[0, 1])
         self.quiver = bqplot.ScatterGL(scales=self.scales_quiver, x=[0, 1], y=[0, 1],
                                        visible=False, marker='arrow')
+        self.lines = bqplot.Lines(scales=self.scales, x=[0,1], y=[0,1])
 
         self.counts = None
         self.image = ImageGL(scales=self.scales_image)
@@ -51,11 +52,13 @@ class BqplotScatterLayerArtist(LayerArtist):
         self._viewer_state.add_global_callback(self._update_scatter)
 
         self.view.figure.marks = (list(self.view.figure.marks)
-                                  + [self.image, self.scatter, self.quiver])
+                                  + [self.image, self.scatter, self.quiver, self.lines])
         dlink((self.state, 'color'), (self.scatter, 'colors'), lambda x: [color2hex(x)])
         dlink((self.state, 'color'), (self.quiver, 'colors'), lambda x: [color2hex(x)])
+        dlink((self.state, 'color'), (self.lines, 'colors'), lambda x: [color2hex(x)])
         self.scatter.observe(self._workaround_unselected_style, 'colors')
         self.quiver.observe(self._workaround_unselected_style, 'colors')
+        self.lines.observe(self._workaround_unselected_style, 'colors')
 
         on_change([(self.state, 'cmap_mode', 'cmap_att')])(self._on_change_cmap_mode_or_att)
         on_change([(self.state, 'cmap')])(self._on_change_cmap)
@@ -74,16 +77,24 @@ class BqplotScatterLayerArtist(LayerArtist):
         self.state.add_callback('visible', self._update_visibility)
         self.state.add_callback('vector_visible', self._update_visibility)
         self.state.add_callback('density_map', self._update_visibility)
+        self.state.add_callback('line_visible', self._update_visibility)
+        self.state.add_callback('markers_visible', self._update_visibility)
 
         dlink((self.state, 'visible'), (self.scatter, 'visible'))
         dlink((self.state, 'visible'), (self.image, 'visible'))
+        dlink((self.state, 'visible'), (self.lines, 'visible'))
 
         dlink((self.state, 'alpha'), (self.scatter, 'default_opacities'), lambda x: [x])
         dlink((self.state, 'alpha'), (self.quiver, 'default_opacities'), lambda x: [x])
+        dlink((self.state, 'alpha'), (self.lines, 'opacities'), lambda x: [x])
         dlink((self.state, 'alpha'), (self.image, 'opacity'))
 
         on_change([(self.state, 'vector_visible', 'vx_att', 'vy_att')])(self._update_quiver)
         dlink((self.state, 'vector_visible'), (self.quiver, 'visible'))
+        
+        dlink((self.state, 'line_visible'), (self.lines, 'visible'))
+        dlink((self.state, 'linestyle'), (self.lines, 'line_style'), lambda ls: "dash_dotted" if ls == "dashdot" else ls)
+        dlink((self.state, 'linewidth'), (self.lines, 'stroke_width'))
 
     def remove(self):
         marks = self.view.figure.marks[:]
@@ -93,6 +104,8 @@ class BqplotScatterLayerArtist(LayerArtist):
         self.scatter = None
         marks.remove(self.quiver)
         self.quiver = None
+        marks.remove(self.lines)
+        self.lines = None
         self.view.figure.marks = marks
         return super().remove()
 
@@ -101,9 +114,12 @@ class BqplotScatterLayerArtist(LayerArtist):
 
     def _on_change_cmap_mode_or_att(self, ignore=None):
         if self.state.cmap_mode == 'Linear' and self.state.cmap_att is not None:
-            self.scatter.color = self.layer.data[self.state.cmap_att].astype(np.float32).ravel()
+            color = self.layer.data[self.state.cmap_att].astype(np.float32).ravel()
+            self.scatter.color = color
+            self.lines.color = color
         else:
             self.scatter.color = None
+            self.lines.color = None
 
     def _on_change_cmap(self, ignore=None):
         cmap = self.state.cmap
@@ -115,9 +131,13 @@ class BqplotScatterLayerArtist(LayerArtist):
         self._update_scatter()
 
     def _update_visibility(self, *args):
+        #print("In _update_visibility")
+        #print("Lines visible: ", not self.state.density_map and self.state.line_visible)
         self.image.visible = self.state.density_map
-        self.scatter.visible = not self.state.density_map
+        self.scatter.visible = not self.state.density_map and self.state.markers_visible
         self.quiver.visible = not self.state.density_map and self.state.vector_visible
+        self.lines.visible = not self.state.density_map and self.state.line_visible
+        #print(self.lines)
 
     def redraw(self):
         self.update()
@@ -129,6 +149,8 @@ class BqplotScatterLayerArtist(LayerArtist):
             self.scatter.unselected_style = {'fill': 'none', 'stroke': 'none'}
             self.quiver.unselected_style = {'fill': 'white', 'stroke': 'none'}
             self.quiver.unselected_style = {'fill': 'none', 'stroke': 'none'}
+            self.lines.unselected_style = {'fill': 'white', 'stroke': 'none'}
+            self.lines.unselected_style = {'fill': 'none', 'stroke': 'none'}
 
     @debounced(method=True)
     def update_histogram(self):
@@ -163,6 +185,7 @@ class BqplotScatterLayerArtist(LayerArtist):
         if (self.image is None or
                 self.scatter is None or
                 self.quiver is None or
+                self.lines is None or
                 self._viewer_state.x_att is None or
                 self._viewer_state.y_att is None or
                 self.state.layer is None):
@@ -177,6 +200,8 @@ class BqplotScatterLayerArtist(LayerArtist):
                               .astype(np.float32).ravel())
             self.quiver.x = self.scatter.x
             self.quiver.y = self.scatter.y
+            self.lines.x = self.scatter.x
+            self.lines.y = self.scatter.y
 
         if isinstance(self.layer, Subset):
 
@@ -195,6 +220,9 @@ class BqplotScatterLayerArtist(LayerArtist):
             self.quiver.selected = selected_indices
             self.quiver.selected_style = {}
             self.quiver.unselected_style = {'fill': 'none', 'stroke': 'none'}
+            self.lines.selected = selected_indices
+            self.lines.selected_style = {}
+            self.lines.unselected_style = {'fill': 'none', 'stroke': 'none'}
 
         else:
             self._clear_selection()
@@ -206,6 +234,9 @@ class BqplotScatterLayerArtist(LayerArtist):
         self.quiver.selected = None
         self.quiver.selected_style = {}
         self.quiver.unselected_style = {}
+        self.lines.selected = None
+        self.lines.selected_style = {}
+        self.lines.unselected_style = {}
 
     def _update_quiver(self):
 
