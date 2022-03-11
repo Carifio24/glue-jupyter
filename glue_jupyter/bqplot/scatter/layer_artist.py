@@ -43,7 +43,7 @@ class BqplotScatterLayerArtist(LayerArtist):
         self.scatter = bqplot.ScatterGL(scales=self.scales, x=[0, 1], y=[0, 1])
         self.quiver = bqplot.ScatterGL(scales=self.scales_quiver, x=[0, 1], y=[0, 1],
                                        visible=False, marker='arrow')
-        self.lines = bqplot.Lines(scales=self.scales, x=[0,1], y=[0,1])
+        self.lines = bqplot.Lines(scales=self.scales, x=[0,1], y=[0,1], visible=False)
 
         self.counts = None
         self.image = ImageGL(scales=self.scales_image)
@@ -113,13 +113,20 @@ class BqplotScatterLayerArtist(LayerArtist):
         self.update()
 
     def _on_change_cmap_mode_or_att(self, ignore=None):
+        marks = self.view.figure.marks[:]
+        if self.lines in marks:
+            marks.remove(self.lines)
         if self.state.cmap_mode == 'Linear' and self.state.cmap_att is not None:
             color = self.layer.data[self.state.cmap_att].astype(np.float32).ravel()
             self.scatter.color = color
-            self.lines.color = color
+            self.lines = bqplot.FlexLine(scales=self.scales, x=[0,1], y=[0,1], color=color, visible=self.state.line_visible)
         else:
             self.scatter.color = None
-            self.lines.color = None
+            self.lines = bqplot.Lines(scales=self.scales, x=[0,1], y=[0,1], color=None, visible=self.state.line_visible)
+        self.lines.x = self.scatter.x
+        self.lines.y = self.scatter.y
+        marks += [self.lines]
+        self.view.figure.marks = marks
 
     def _on_change_cmap(self, ignore=None):
         cmap = self.state.cmap
