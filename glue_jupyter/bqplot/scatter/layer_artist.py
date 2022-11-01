@@ -75,6 +75,8 @@ class BqplotScatterLayerArtist(LayerArtist):
         self.state.add_callback('visible', self._update_visibility)
         self.state.add_callback('vector_visible', self._update_visibility)
         self.state.add_callback('density_map', self._update_visibility)
+        
+        self.state.add_callback('zorder', self._reorder_layers)
 
         dlink((self.state, 'visible'), (self.scatter, 'visible'))
         dlink((self.state, 'visible'), (self.image, 'visible'))
@@ -116,6 +118,10 @@ class BqplotScatterLayerArtist(LayerArtist):
     def _on_change_density_map(self):
         self._update_visibility()
         self._update_scatter()
+
+    def _reorder_layers(self, ignore=None):
+        self.view.figure.marks = [item for layer in sorted(self.view.layers, key=lambda layer: layer.state.zorder) \
+                                  for item in (layer.image, layer.scatter, layer.quiver)]
 
     def _update_visibility(self, *args):
         self.image.visible = self.state.density_map
