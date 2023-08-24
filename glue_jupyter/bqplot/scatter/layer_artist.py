@@ -273,14 +273,16 @@ class BqplotScatterLayerArtist(LayerArtist):
                         self.scale_size_scatter.min = 0
                         self.scale_size_scatter.max = 1
                     else:
-                        self.scatter_mark.default_size = int(self.state.size_scaling * 10)
-                        s = ensure_numerical(self.layer[self.state.size_att].ravel())
-                        s = (s - self.state.size_vmin) / (self.state.size_vmax - self.state.size_vmin)
-                        np.clip(s, 0, 1, out=s)
+                        self.scatter_mark.default_size = int(self.state.size_scaling)
+                        s = ensure_numerical(self.layer[self.state.size_att].ravel()).astype(float)
+                        np.clip(s, self.state.size_vmin, self.state.size_vmax, out=s)
+                        size_range = self.state.size_vmax - self.state.size_vmin
                         s *= 0.95
-                        s += 0.05
-                        s *= self.scatter_mark.default_size
-                        self.scatter_mark.size = s ** 2
+                        s += (0.05 * size_range)
+                        self.scatter_mark.size = (s ** 2) * self.scatter_mark.default_size
+
+                        # self.scale_size_scatter.min = float_or_none(self.state.size_vmin ** 2)
+                        # self.scale_size_scatter.max = float_or_none(self.state.size_vmax ** 2)
 
         if (
             self.state.vector_visible
