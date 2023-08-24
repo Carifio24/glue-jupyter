@@ -279,10 +279,11 @@ class BqplotScatterLayerArtist(LayerArtist):
                         size_range = self.state.size_vmax - self.state.size_vmin
                         s *= 0.95
                         s += (0.05 * size_range)
-                        self.scatter_mark.size = (s ** 2) * self.scatter_mark.default_size
+                        s *= self.state.size_scaling
+                        self.scatter_mark.size = s ** 2
 
-                        # self.scale_size_scatter.min = float_or_none(self.state.size_vmin ** 2)
-                        # self.scale_size_scatter.max = float_or_none(self.state.size_vmax ** 2)
+                        self.scale_size_scatter.min = float_or_none(self.state.size_vmin ** 2)
+                        self.scale_size_scatter.max = float_or_none(self.state.size_vmax ** 2)
 
         if (
             self.state.vector_visible
