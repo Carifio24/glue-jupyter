@@ -95,9 +95,9 @@ class IpyvolumeScatterLayerArtist(LayerArtist):
 
     def update(self):
         # we don't use layer, but layer.data to get everything
-        self.scatter.x = ensure_numerical(self.layer.data[self._viewer_state.x_att]).ravel()
-        self.scatter.z = ensure_numerical(self.layer.data[self._viewer_state.y_att]).ravel()
-        self.scatter.y = ensure_numerical(self.layer.data[self._viewer_state.z_att]).ravel()
+        self.scatter.x = ensure_numerical(self.layer.data[self._viewer_state.x_att]).ravel().astype("float32")
+        self.scatter.z = ensure_numerical(self.layer.data[self._viewer_state.y_att]).ravel().astype("float32")
+        self.scatter.y = ensure_numerical(self.layer.data[self._viewer_state.z_att]).ravel().astype("float32")
         self.quiver.x = self.scatter.x
         self.quiver.z = self.scatter.y
         self.quiver.y = self.scatter.z
