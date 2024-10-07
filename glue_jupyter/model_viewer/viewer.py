@@ -152,7 +152,7 @@ class ModelViewerLayerArtist(LayerArtist):
     def _refresh(self):
         self._model_viewer.redraw()
 
-    def redraw(self):
+    def redraw(self, *args, **kwargs):
         self._refresh()
 
     def update(self):
@@ -187,7 +187,7 @@ class ModelViewer(IPyWidgetView):
 
         self.state.add_global_callback(self.redraw)
 
-    def redraw(self, **kwargs):
+    def redraw(self, *args, **kwargs):
         # subsets = [k.layer for k in self.layers if isinstance(k.layer, Subset)]
         # with self.modelviewer_widget.hold_sync():
         #     self.modelviewer_widget.selections = [subset.label for subset in subsets]
