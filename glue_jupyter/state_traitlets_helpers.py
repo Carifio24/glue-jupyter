@@ -169,7 +169,8 @@ class GlueState(traitlets.Any):
         if state is None:
             return {}
         else:
-            print(state_to_dict(state))
+            # TODO: This is a hack to get around the fact that `limits_cache` has ComponentID keys
+            # How is this not a problem for the regular 3D viewers?
             return json.loads(json.dumps(state_to_dict(state), cls=GlueStateJSONEncoder, skipkeys=True))
 
     def update_state_from_json(self, json, widget):
