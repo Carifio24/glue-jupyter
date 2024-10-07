@@ -169,7 +169,8 @@ class GlueState(traitlets.Any):
         if state is None:
             return {}
         else:
-            return json.loads(json.dumps(state_to_dict(state), cls=GlueStateJSONEncoder))
+            print(state_to_dict(state))
+            return json.loads(json.dumps(state_to_dict(state), cls=GlueStateJSONEncoder, skipkeys=True))
 
     def update_state_from_json(self, json, widget):
         state = getattr(widget, self.name)
