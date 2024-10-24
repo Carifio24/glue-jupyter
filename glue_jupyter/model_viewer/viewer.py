@@ -91,8 +91,7 @@ def xyz_bounds(viewer_state):
 # Convert data to a format that can be used by the model-viewer
 def process_data(viewer, state_dictionary) -> str:
     layers = layers_to_export(viewer)
-    uuid = unique_id()
-    path = os.getcwd() + f"/model_{uuid}.glb"
+    path = os.getcwd() + f"/model.glb"
 
     try:
         export_viewer(viewer.state, [l.state for l in layers], xyz_bounds(viewer.state), state_dictionary, path, compression="None")
@@ -129,6 +128,7 @@ class ModelViewerWidget(ipyreact.Widget):
     model = traitlets.Any().tag(sync=True)
     viewer_height = traitlets.Any(default_value="400px").tag(sync=True)
     viewer = traitlets.Any()
+    model_path = None
 
     def update_view(self):
         state_dictionary = {
