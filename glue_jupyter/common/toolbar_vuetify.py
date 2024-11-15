@@ -6,7 +6,7 @@ import base64
 
 from glue.icons import icon_path
 import glue.viewers.common.tool
-from glue.viewers.common.tool import CheckableTool
+from glue.viewers.common.tool import CheckableTool, DropdownTool
 
 __all__ = ['BasicJupyterToolbar']
 
@@ -68,9 +68,8 @@ class BasicJupyterToolbar(v.VuetifyTemplate):
             if self._default_mouse_mode is not None:
                 self._default_mouse_mode.activate()
 
-    def add_tool(self, tool):
-        self.tools[tool.tool_id] = tool
-        # TODO: we should ideally just incorporate this check into icon_path directly.
+    def _data_for_tool(self, tool):
+
         ext = os.path.splitext(tool.icon)[1][1:] or "svg"
         if os.path.exists(tool.icon):
             path = tool.icon
@@ -82,10 +81,18 @@ class BasicJupyterToolbar(v.VuetifyTemplate):
         if format is None or not format.startswith(image_prefix):
             raise ValueError(f"Invalid or unknown image MIME type for: {path}")
         format = format[len(image_prefix):]
+
+        is_dropdown = isinstance(tool, DropdownTool)
+        return {
+            'tooltip': tool.tool_tip,
+            'img': read_icon(path, format),
+            'dropdown': is_dropdown,
+            'subtools': [self._data_for_tool(subtool) for subtool in tool.subtools] if is_dropdown else None
+        }
+
+    def add_tool(self, tool):
+        self.tools[tool.tool_id] = tool
         self.tools_data = {
             **self.tools_data,
-            tool.tool_id: {
-                'tooltip': tool.tool_tip,
-                'img': read_icon(path, format)
-            }
+            tool.tool_id: self._data_for_tool(tool),
         }
