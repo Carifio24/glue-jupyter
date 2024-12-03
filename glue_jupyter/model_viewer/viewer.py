@@ -7,7 +7,7 @@ import ipywidgets as widgets
 import ipyvuetify as v
 import pyvista as pv
 import traitlets
-from glue_jupyter.ipyvolume.scatter.layer_artist import Scatter3DLayerState
+from glue_vispy_viewers.volume.layer_state import VolumeLayerState
 
 from glue_jupyter.registries import viewer_registry
 
@@ -18,18 +18,21 @@ from glue.config import colormaps
 from glue_jupyter.view import IPyWidgetView
 from glue.core.data import Subset
 from glue.viewers.common.layer_artist import LayerArtist
-from glue.viewers.scatter.state import ScatterLayerState
-
+from glue_vispy_viewers.volume.jupyter.viewer_state_widget import Volume3DViewerStateWidget
+from glue_vispy_viewers.volume.jupyter.layer_state_widget import Volume3DLayerStateWidget
+from glue_vispy_viewers.scatter.jupyter.layer_state_widget import Scatter3DLayerStateWidget
+from glue_vispy_viewers.scatter.layer_state import ScatterLayerState 
+from glue_vispy_viewers.scatter.viewer_state import Vispy3DScatterViewerState
 from glue_vispy_viewers.scatter.jupyter.viewer_state_widget import Scatter3DViewerStateWidget
+from glue_ar.utils import xyz_bounds
 from glue_ar.common.export import export_viewer
 from glue_ar.common.export_options import ar_layer_export 
+from glue_ar.common.marching_cubes import add_isosurface_layer_gltf
 from glue_ar.common.scatter_gltf import add_vispy_scatter_layer_gltf
 from glue_ar.common.scatter_export_options import ARVispyScatterExportOptions
+from glue_ar.common.volume_export_options import ARIsosurfaceExportOptions
 
 from glue_jupyter.widgets import Color, Size
-from glue_jupyter.common.state3d import Scatter3DViewerState, ViewerState3D
-from ..ipyvolume.common import Viewer3DStateWidget
-from ..ipyvolume.scatter import Scatter3DLayerStateWidget
 from ..link import link, on_change
 from ..vuetify_helpers import link_glue_choices
 
@@ -82,19 +85,13 @@ from ..vuetify_helpers import link_glue_choices
 #     }
 
 
-def xyz_bounds(viewer_state):
-    return [(viewer_state.x_min, viewer_state.x_max),
-            (viewer_state.y_min, viewer_state.y_max),
-            (viewer_state.z_min, viewer_state.z_max)]
-
-
 # Convert data to a format that can be used by the model-viewer
 def process_data(viewer, state_dictionary) -> str:
     layers = layers_to_export(viewer)
     path = os.getcwd() + f"/model.glb"
 
     try:
-        export_viewer(viewer.state, [l.state for l in layers], xyz_bounds(viewer.state), state_dictionary, path, compression="None")
+        export_viewer(viewer.state, [l.state for l in layers], xyz_bounds(viewer.state, with_resolution=True), state_dictionary, path, compression="None")
 
         return str(path)
     except Exception:
@@ -103,25 +100,26 @@ def process_data(viewer, state_dictionary) -> str:
         return None
 
 
-class ModelViewer3DViewerState(Scatter3DViewerState):
+class ModelViewer3DViewerState(Vispy3DScatterViewerState):
     def __init__(self, **kwargs):
         super(ModelViewer3DViewerState, self).__init__(**kwargs)
 
 
-class ModelViewerLayerStateWidget(Scatter3DLayerStateWidget):
+class ModelViewerScatterLayerStateWidget(Scatter3DLayerStateWidget):
     def __init__(self, layer_state):
-        super(ModelViewerLayerStateWidget, self).__init__(layer_state)
+        super(ModelViewerScatterLayerStateWidget, self).__init__(layer_state)
 
 
-class ModelViewerStateWidget(Viewer3DStateWidget):
+class ModelViewerStateWidget(Scatter3DViewerStateWidget):
     def __init__(self, viewer_state):
         super(ModelViewerStateWidget, self).__init__(viewer_state)
         self.state = viewer_state
 
 
-class ModelViewerLayerState(Scatter3DLayerState):
-    def __init__(self, viewer_state=None, layer=None, **kwargs):
-        super().__init__(viewer_state, layer, **kwargs)
+class ModelViewerScatterLayerState(ScatterLayerState):
+    def __init__(self, layer=None, **kwargs):
+        super().__init__(layer, **kwargs)
+
 
 class ModelViewerWidget(ipyreact.Widget):
     _esm = Path(__file__).parent / "modelviewer.mjs"
@@ -131,21 +129,29 @@ class ModelViewerWidget(ipyreact.Widget):
     model_path = None
 
     def update_view(self):
-        state_dictionary = {
-            export_label_for_layer(layer): ("Scatter", ARVispyScatterExportOptions()) for layer in self.viewer.layers
-        }
+        state_dictionary = {}
+        for layer in self.viewer.layers:
+            label = export_label_for_layer(layer)
+            if layer.layer.ndim >= 3:
+                options = ("Isosurface", ARIsosurfaceExportOptions(isosurface_count=10))
+            else:
+                options = ("Scatter", ARVispyScatterExportOptions(resolution=3))
+            state_dictionary[label] = options
+
+        print("update_view")
+        print(state_dictionary)
         self.model_path = process_data(self.viewer, state_dictionary)
         if self.model_path:
             self.model = open(self.model_path, "rb").read()
 
 
-class ModelViewerLayerArtist(LayerArtist):
+class ModelViewerScatterLayerArtist(LayerArtist):
 
-    _layer_state_cls = ModelViewerLayerState
+    _layer_state_cls = ModelViewerScatterLayerState
 
     def __init__(self, model_viewer, viewer_state, layer_state=None, layer=None):
         self._model_viewer = model_viewer
-        super(ModelViewerLayerArtist, self).__init__(viewer_state, layer_state=layer_state, layer=layer)
+        super().__init__(viewer_state, layer_state=layer_state, layer=layer)
 
         self.state.add_global_callback(self.redraw)
 
@@ -165,6 +171,42 @@ class ModelViewerLayerArtist(LayerArtist):
         pass
 
 
+class ModelViewerIsosurfaceLayerState(VolumeLayerState):
+    def __init__(self, layer=None, **kwargs):
+        super().__init__(layer, **kwargs)
+
+
+class ModelViewerIsosurfaceLayerArtist(LayerArtist):
+
+    _layer_state_cls = ModelViewerIsosurfaceLayerState
+
+    def __init__(self, model_viewer, viewer_state, layer_state=None, layer=None):
+        self._model_viewer = model_viewer
+        super().__init__(viewer_state, layer_state=layer_state, layer=layer)
+
+        self.state.add_global_callback(self.redraw)
+
+    def _refresh(self):
+        self._model_viewer.redraw()
+
+    def redraw(self, *args, **kwargs):
+        self._refresh()
+
+    def update(self):
+        self._refresh()
+
+    def clear(self):
+        self._refresh()
+
+    def remove(self):
+        pass
+
+
+class ModelViewerIsosurfaceLayerStateWidget(Volume3DLayerStateWidget):
+    def __init__(self, layer_state):
+        super(ModelViewerIsosurfaceLayerStateWidget, self).__init__(layer_state)
+
+
 @viewer_registry('model')
 class ModelViewer(IPyWidgetView):
     # tools = ['model:ar']
@@ -174,9 +216,8 @@ class ModelViewer(IPyWidgetView):
 
     _state_cls = ModelViewer3DViewerState
     _options_cls = ModelViewerStateWidget
-    _data_artist_cls = ModelViewerLayerArtist
-    _subset_artist_cls = ModelViewerLayerArtist
-    _layer_style_widget_cls = ModelViewerLayerStateWidget
+    _layer_style_widget_cls = {ModelViewerScatterLayerArtist: ModelViewerScatterLayerStateWidget,
+                               ModelViewerIsosurfaceLayerArtist: ModelViewerIsosurfaceLayerStateWidget}
 
 
     def __init__(self, session, state=None):
@@ -186,6 +227,14 @@ class ModelViewer(IPyWidgetView):
         self.create_layout()
 
         self.state.add_global_callback(self.redraw)
+
+    def get_data_layer_artist(self, layer=None, layer_state=None):
+        cls = ModelViewerIsosurfaceLayerArtist if layer.ndim >= 3 else ModelViewerScatterLayerArtist
+        return self.get_layer_artist(cls, layer=layer, layer_state=layer_state)
+
+    def get_subset_layer_artist(self, layer=None, layer_state=None):
+        cls = ModelViewerIsosurfaceLayerArtist if layer.ndim >= 3 else ModelViewerScatterLayerArtist
+        return self.get_layer_artist(cls, layer=layer, layer_state=layer_state)
 
     def redraw(self, *args, **kwargs):
         # subsets = [k.layer for k in self.layers if isinstance(k.layer, Subset)]
@@ -198,4 +247,6 @@ class ModelViewer(IPyWidgetView):
     def figure_widget(self):
         return self.modelviewer_widget
 
-ar_layer_export.add(ModelViewerLayerState, "Scatter", ARVispyScatterExportOptions, ("gltf", "glb"), False, add_vispy_scatter_layer_gltf)
+
+ar_layer_export.add(ModelViewerScatterLayerState, "Scatter", ARVispyScatterExportOptions, ("gltf", "glb"), False, add_vispy_scatter_layer_gltf)
+ar_layer_export.add(ModelViewerIsosurfaceLayerState, "Isosurface", ARIsosurfaceExportOptions, ("gltf", "glb"), False, add_isosurface_layer_gltf)
