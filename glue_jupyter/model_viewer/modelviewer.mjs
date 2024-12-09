@@ -7,7 +7,7 @@ export default ( {model, viewer_height} ) => {
     const url = URL.createObjectURL(modelBlob);
     return <model-viewer alt="Neil Armstrong's Spacesuit from the Smithsonian Digitization Programs Office and National Air and Space Museum"
     src={url}
-    shadow-intensity="1"
+    shadow-intensity="0"
     camera-controls 
     touch-action="pan-y"
     ar

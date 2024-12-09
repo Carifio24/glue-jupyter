@@ -7,6 +7,7 @@ import ipywidgets as widgets
 import ipyvuetify as v
 import pyvista as pv
 import traitlets
+from echo import CallbackProperty, SelectionCallbackProperty
 from glue_vispy_viewers.volume.layer_state import VolumeLayerState
 
 from glue_jupyter.registries import viewer_registry
@@ -16,13 +17,14 @@ from glue_jupyter.state_traitlets_helpers import GlueState
 
 from glue.config import colormaps
 from glue_jupyter.view import IPyWidgetView
-from glue.core.data import Subset
+from glue.core import BaseData, Subset
+from glue.core.data_combo_helper import ComponentIDComboHelper
 from glue.viewers.common.layer_artist import LayerArtist
 from glue_vispy_viewers.volume.jupyter.viewer_state_widget import Volume3DViewerStateWidget
 from glue_vispy_viewers.volume.jupyter.layer_state_widget import Volume3DLayerStateWidget
 from glue_vispy_viewers.scatter.jupyter.layer_state_widget import Scatter3DLayerStateWidget
 from glue_vispy_viewers.scatter.layer_state import ScatterLayerState 
-from glue_vispy_viewers.scatter.viewer_state import Vispy3DScatterViewerState
+from glue_vispy_viewers.scatter.viewer_state import Vispy3DScatterViewerState, Vispy3DViewerState
 from glue_vispy_viewers.scatter.jupyter.viewer_state_widget import Scatter3DViewerStateWidget
 from glue_ar.utils import xyz_bounds
 from glue_ar.common.export import export_viewer
@@ -86,23 +88,92 @@ from ..vuetify_helpers import link_glue_choices
 
 
 # Convert data to a format that can be used by the model-viewer
-def process_data(viewer, state_dictionary) -> str:
+def process_data(viewer, state_dictionary) -> str | None:
     layers = layers_to_export(viewer)
     path = os.getcwd() + f"/model.glb"
 
     try:
-        export_viewer(viewer.state, [l.state for l in layers], xyz_bounds(viewer.state, with_resolution=True), state_dictionary, path, compression="None")
+        print("About to export")
+        print(viewer.state)
+        print([l.state for l in layers])
+        print(xyz_bounds(viewer.state, with_resolution=True))
+        print(state_dictionary)
+        print(path)
+        export_viewer(viewer.state,
+                      [l.state for l in layers],
+                      xyz_bounds(viewer.state, with_resolution=True),
+                      state_dictionary,
+                      path,
+                      compression="None")
+        print("Exported")
 
         return str(path)
     except Exception:
-        import traceback
-        print(traceback.format_exc())
+        # import traceback
+        # print(traceback.format_exc())
         return None
 
 
-class ModelViewer3DViewerState(Vispy3DScatterViewerState):
+class ModelViewer3DViewerState(Vispy3DViewerState):
+    resolution = CallbackProperty(128)
+    reference_data = CallbackProperty(None)
+
     def __init__(self, **kwargs):
-        super(ModelViewer3DViewerState, self).__init__(**kwargs)
+        super().__init__(**kwargs)
+
+        self.x_att_helper = ComponentIDComboHelper(self, 'x_att', categorical=False)
+        self.y_att_helper = ComponentIDComboHelper(self, 'y_att', categorical=False)
+        self.z_att_helper = ComponentIDComboHelper(self, 'z_att', categorical=False)
+
+        self.add_callback('layers', self._layers_changed)
+
+        self.update_from_dict(kwargs)
+
+    def _set_reference_data(self, *args):
+        for layer in self.layers:
+            if isinstance(layer.layer, BaseData):
+                self.reference_data = layer.layer
+                return
+
+    def _first_3d_data(self):
+        for layer_state in self.layers:
+            if getattr(layer_state.layer, 'ndim', None) == 3:
+                return layer_state.layer
+        return None
+
+    def _first_data(self):
+        for layer_state in self.layers:
+            return layer_state.layer
+
+    def _update_attributes(self, *args):
+
+        data = self._first_data()
+
+        if data is None:
+            
+            type(self).x_att.set_choices(self, [])
+            type(self).y_att.set_choices(self, [])
+            type(self).z_att.set_choices(self, [])
+
+        elif data.ndim >= 3:
+
+            z_cid, y_cid, x_cid = data.pixel_component_ids
+
+            type(self).x_att.set_choices(self, [x_cid])
+            type(self).y_att.set_choices(self, [y_cid])
+            type(self).z_att.set_choices(self, [z_cid])
+
+        else:
+            self.x_att_helper.set_multiple_data([data])
+            self.y_att_helper.set_multiple_data([data])
+            self.z_att_helper.set_multiple_data([data])
+
+    def _layers_changed(self, *args):
+        self._set_reference_data()
+        self._update_attributes()
+        data = self._first_data()
+        if data is not None:
+            self.reset_limits()
 
 
 class ModelViewerScatterLayerStateWidget(Scatter3DLayerStateWidget):
@@ -143,6 +214,7 @@ class ModelViewerWidget(ipyreact.Widget):
         self.model_path = process_data(self.viewer, state_dictionary)
         if self.model_path:
             self.model = open(self.model_path, "rb").read()
+            print("Read model file")
 
 
 class ModelViewerScatterLayerArtist(LayerArtist):
