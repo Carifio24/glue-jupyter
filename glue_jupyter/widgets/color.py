@@ -9,7 +9,11 @@ from .linked_dropdown import LinkedDropdown
 
 class Color(widgets.VBox):
 
-    def __init__(self, state, **kwargs):
+    def __init__(self,
+                 state,
+                 cmap_att="cmap_att",
+                 cmap_mode_att="cmap_mode",
+                 **kwargs):
         super(Color, self).__init__(**kwargs)
         self.state = state
 
@@ -17,13 +21,13 @@ class Color(widgets.VBox):
         link((self.state, 'color'), (self.widget_color, 'value'), color2hex)
         children = (self.widget_color,)
 
-        if hasattr(self.state, 'cmap_mode'):
-            cmap_mode_options = type(self.state).cmap_mode.get_choice_labels(self.state)
+        if hasattr(self.state, cmap_mode_att):
+            cmap_mode_options = getattr(type(self.state), cmap_mode_att).get_choice_labels(self.state)
             self.widget_cmap_mode = widgets.RadioButtons(options=cmap_mode_options,
                                                          description='cmap mode')
-            link((self.state, 'cmap_mode'), (self.widget_cmap_mode, 'value'))
+            link((self.state, cmap_mode_att), (self.widget_cmap_mode, 'value'))
 
-            self.widget_cmap_att = LinkedDropdown(self.state, 'cmap_att',
+            self.widget_cmap_att = LinkedDropdown(self.state, cmap_att,
                                                   ui_name='color attribute',
                                                   label='color attribute')
 
