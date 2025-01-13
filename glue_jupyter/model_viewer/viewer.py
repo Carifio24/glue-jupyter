@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from uuid import uuid4
 from glue_ar.utils import export_label_for_layer, layers_to_export, unique_id
 
 import ipyreact
@@ -90,7 +91,7 @@ from ..vuetify_helpers import link_glue_choices
 # Convert data to a format that can be used by the model-viewer
 def process_data(viewer, state_dictionary) -> str | None:
     layers = layers_to_export(viewer)
-    path = os.getcwd() + f"/model.glb"
+    path = viewer.modelviewer_widget.model_path
 
     try:
         print("About to export")
@@ -107,11 +108,10 @@ def process_data(viewer, state_dictionary) -> str | None:
                       compression="None")
         print("Exported")
 
-        return str(path)
     except Exception:
         # import traceback
         # print(traceback.format_exc())
-        return None
+        pass
 
 
 class ModelViewer3DViewerState(Vispy3DViewerState):
@@ -199,12 +199,16 @@ class ModelViewerWidget(ipyreact.Widget):
     viewer = traitlets.Any()
     model_path = None
 
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.model_path = os.path.join(os.getcwd(), f"model_{uuid4()}.glb")
+
     def update_view(self):
         state_dictionary = {}
         for layer in self.viewer.layers:
             label = export_label_for_layer(layer)
             if layer.layer.ndim >= 3:
-                options = ("Isosurface", ARIsosurfaceExportOptions(isosurface_count=10))
+                options = ("Isosurface", ARIsosurfaceExportOptions(isosurface_count=8))
             else:
                 options = ("Scatter", ARVispyScatterExportOptions(resolution=3))
             state_dictionary[label] = options
@@ -212,8 +216,8 @@ class ModelViewerWidget(ipyreact.Widget):
         print("update_view")
         print(state_dictionary)
         self.model_path = process_data(self.viewer, state_dictionary)
-        if self.model_path:
-            self.model = open(self.model_path, "rb").read()
+        with open(self.model_path, "rb") as f:
+            self.model = f.read()
             print("Read model file")
 
 
