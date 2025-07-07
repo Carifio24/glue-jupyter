@@ -2,6 +2,7 @@ import ipyvolume as ipv
 import numpy as np
 import matplotlib.colors
 
+from glue_vispy_viewers.volume.layer_artist import DataProxy
 from glue_vispy_viewers.volume.layer_state import VolumeLayerState
 from echo import CallbackProperty
 from glue.core.data import Subset
@@ -68,6 +69,7 @@ class IpyvolumeVolumeLayerArtist(VispyLayerArtist):
 
         # ipv.figure(self.ipyvolume_viewer.figure)
         self.last_shape = None
+        self._data_proxy = None
 
         dlink((self.state, 'lighting'), (self.volume, 'lighting'))
         dlink((self.state, 'render_method'), (self.volume, 'rendering_method'))
@@ -93,19 +95,15 @@ class IpyvolumeVolumeLayerArtist(VispyLayerArtist):
         pass
 
     def update(self):
-        if isinstance(self.layer, Subset):
-            try:
-                mask = self.layer.to_mask()
-            except IncompatibleAttribute:
-                # The following includes a call to self.clear()
-                self.disable("Subset cannot be applied to this data")
-                return
-            else:
-                self.enable()
-            data = self.layer.data[self.state.attribute].astype(np.float32)
-            data *= mask
-        else:
-            data = self.layer[self.state.attribute]
+
+        if self._data_proxy is None:
+            self._data_proxy = DataProxy(self._viewer_state, self)
+
+        data_bounds = [(self._viewer_state.z_min, self._viewer_state.z_max, self.state.max_resolution),
+                       (self._viewer_state.y_min, self._viewer_state.y_max, self.state.max_resolution),
+                       (self._viewer_state.x_min, self._viewer_state.x_max, self.state.max_resolution)]
+
+        data = self._data_proxy.compute_fixed_resolution_buffer(bounds=data_bounds)
 
         data = np.transpose(data, (2, 0, 1))
         finite_mask = np.isfinite(data)
