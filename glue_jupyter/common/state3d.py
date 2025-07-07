@@ -1,7 +1,8 @@
 import numpy as np
 
 from glue.viewers.common.state import ViewerState
-from echo import (CallbackProperty, SelectionCallbackProperty)
+from glue.viewers.image.state import AggregateSlice
+from echo import (delay_callback, CallbackProperty, SelectionCallbackProperty)
 from glue.core.data_combo_helper import ComponentIDComboHelper
 from glue.core.state_objects import StateAttributeLimitsHelper
 from glue.utils import nonpartial
@@ -124,6 +125,9 @@ class VolumeViewerState(ViewerState3D):
     def __init__(self, **kwargs):
         super(VolumeViewerState, self).__init__()
         self.add_callback('layers', self._update_attributes)
+        self.add_callback('x_att', self._on_xatt_changed, echo_old=True)
+        self.add_callback('y_att', self._on_yatt_changed, echo_old=True)
+        self.add_callback('z_att', self._on_zatt_changed, echo_old=True)
         self.update_from_dict(kwargs)
 
     def _update_attributes(self, *args):
@@ -140,11 +144,47 @@ class VolumeViewerState(ViewerState3D):
             type(self).z_att.set_choices(self, [])
 
         else:
-            z_cid, y_cid, x_cid = data.pixel_component_ids
+            pixel_ids = data.pixel_component_ids
+            with delay_callback(self, "x_att", "y_att", "z_att"):
+                type(self).x_att.set_choices(self, pixel_ids)
+                type(self).y_att.set_choices(self, pixel_ids)
+                type(self).z_att.set_choices(self, pixel_ids)
 
-            type(self).x_att.set_choices(self, [x_cid])
-            type(self).y_att.set_choices(self, [y_cid])
-            type(self).z_att.set_choices(self, [z_cid])
+    def _on_xatt_changed(self, prev_att, new_att):
+        if self.y_att == new_att:
+            self.y_att = prev_att
+        elif self.z_att == new_att:
+            self.z_att = prev_att
+
+    def _on_yatt_changed(self, prev_att, new_att):
+        if self.x_att == new_att:
+            self.x_att = prev_att
+        elif self.z_att == new_att:
+            self.z_att = prev_att
+
+    def _on_zatt_changed(self, prev_att, new_att):
+        if self.x_att == new_att:
+            self.x_att = prev_att
+        elif self.y_att == new_att:
+            self.y_att = prev_att
+
+    @property
+    def numpy_slice_aggregation(self):
+        if self.reference_data is None:
+            return None
+
+        slices = []
+        coord_att_axes = [self.x_att.axis, self.y_att.axis, self.z_att.axis]
+        for i in range(self.reference_data.ndim):
+            if i in coord_att_axes:
+                slices.append(slice(None))
+            else:
+                if isinstance(self.slices[i], AggregateSlice):
+                    slices.append(self.slices[i].slice)
+                else:
+                    slices.append(self.slices[i])
+
+        return slices
 
 
 class Scatter3DViewerState(ViewerState3D):
