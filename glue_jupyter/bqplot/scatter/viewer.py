@@ -26,6 +26,7 @@ class BqplotScatterView(BqplotBaseView):
 
     tools = ['bqplot:home', 'bqplot:panzoom', 'bqplot:rectangle', 'bqplot:circle',
              'bqplot:ellipse', 'bqplot:xrange', 'bqplot:yrange', 'bqplot:polygon', 'bqplot:lasso']
+    subtools = {"save": ["bqplot:home"]}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

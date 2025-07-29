@@ -156,10 +156,14 @@ class IPyWidgetView(Viewer):
         # specified otherwise
         tool_ids, subtool_ids = get_viewer_tools(self.__class__)
 
-        if subtool_ids:
-            raise ValueError('subtools are not yet supported in Jupyter viewers')
-
         for tool_id in tool_ids:
             mode_cls = viewer_tool.members[tool_id]
             mode = mode_cls(self)
             self.toolbar.add_tool(mode)
+
+        for _subtool_id, tool_ids in subtool_ids.items():
+            for tool_id in tool_ids:
+                mode_cls = viewer_tool.members[tool_id]
+                mode = mode_cls(self)
+                self.toolbar.add_tool(mode)
+
