@@ -1,6 +1,7 @@
 from ipywidgets import Checkbox, VBox, ToggleButton
 
 import ipyvolume as ipv
+from traitlets import traitlets
 
 from ...link import link, dlink
 from ...widgets import LinkedDropdown
@@ -10,6 +11,8 @@ __all__ = ['Viewer3DStateWidget']
 
 
 class Viewer3DStateWidget(VBox):
+
+    slices = traitlets.List().tag(sync=True)
 
     def __init__(self, viewer_state):
 
