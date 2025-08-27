@@ -28,7 +28,7 @@ class BasicJupyterToolbar(v.VuetifyTemplate):
     active_tool = traitlets.Instance(glue.viewers.common.tool.Tool, allow_none=True,
                                      default_value=None)
     tools_data = traitlets.Dict(default_value={}).tag(sync=True)
-    active_tool_id = traitlets.Unicode(allow_none=True, default_value=None).tag(sync=True)
+    active_tool_id = traitlets.Unicode(allow_none=True, default_value="").tag(sync=True)
 
     def __init__(self, viewer):
         self.output = viewer.output_widget
@@ -42,7 +42,7 @@ class BasicJupyterToolbar(v.VuetifyTemplate):
 
     @traitlets.observe('active_tool_id')
     def _on_change_v_model(self, change):
-        if change.new is not None:
+        if change.new:
             if isinstance(self.tools[change.new], CheckableTool):
                 self.active_tool = self.tools[change.new]
             else:
