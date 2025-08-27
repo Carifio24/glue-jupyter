@@ -28,7 +28,7 @@ class BasicJupyterToolbar(v.VuetifyTemplate):
     active_tool = traitlets.Instance(glue.viewers.common.tool.Tool, allow_none=True,
                                      default_value=None)
     tools_data = traitlets.Dict(default_value={}).tag(sync=True)
-    active_tool_id = traitlets.Unicode().tag(allow_none=True, default_value=None, sync=True)
+    active_tool_id = traitlets.Unicode(allow_none=True, default_value=None).tag(sync=True)
 
     def __init__(self, viewer):
         self.output = viewer.output_widget
