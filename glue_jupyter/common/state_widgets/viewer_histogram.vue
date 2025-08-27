@@ -7,10 +7,10 @@
             <v-text-field type="number" step="1" label="number of bins" v-model="glue_state.hist_n_bin" />
         </div>
         <div>
-            <glue-float-field label="x-min" :value.sync="glue_state.hist_x_min" />-->
+            <glue-float-field label="x-min" :value.sync="glue_state.hist_x_min" />
         </div>
         <div>
-            <glue-float-field label="x-max" :value.sync="glue_state.hist_x_max" />-->
+            <glue-float-field label="x-max" :value.sync="glue_state.hist_x_max" />
         </div>
         <div>
             <v-toolbar density="compact" >
@@ -31,7 +31,7 @@
                     <span>cumulative</span>
                   </v-tooltip>
 
-                  <v-btn variant="outlined" size="x-small" @click="bins_to_axes">
+                  <v-btn variant="outlined" size="x-small" @click="bins_dirty = true">
                       Fit Bins to Axes
                   </v-btn>
             </v-toolbar>
