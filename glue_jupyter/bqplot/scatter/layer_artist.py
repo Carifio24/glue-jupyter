@@ -1,4 +1,5 @@
 import bqplot
+from bqplot.marks import Scatter, Lines
 import numpy as np
 import warnings
 from astropy.visualization import AsinhStretch, LinearStretch, LogStretch, SqrtStretch
@@ -11,7 +12,7 @@ from glue.viewers.scatter.state import ScatterLayerState
 from glue_jupyter.bqplot.scatter.scatter_density_mark import GenericDensityMark
 
 from ...utils import colormap_to_hexlist, float_or_none
-from ..compatibility import ScatterGL, LinesGL
+from ..compatibility import LinesGL
 
 USE_GL = True
 
@@ -110,7 +111,7 @@ class BqplotScatterLayerArtist(LayerArtist):
             color=self.scale_color_scatter,
         )
 
-        self.scatter_mark = ScatterGL(scales=self.scales_scatter, x=[0, 1], y=[0, 1])
+        self.scatter_mark = Scatter(scales=self.scales_scatter, x=[0, 1], y=[0, 1])
 
         # Line
 
@@ -137,7 +138,7 @@ class BqplotScatterLayerArtist(LayerArtist):
             color=self.scale_color_vector,
             rotation=self.scale_rotation_vector,
         )
-        self.vector_mark = ScatterGL(
+        self.vector_mark = Scatter(
             scales=self.scales_vector,
             x=[0, 1],
             y=[0, 1],
