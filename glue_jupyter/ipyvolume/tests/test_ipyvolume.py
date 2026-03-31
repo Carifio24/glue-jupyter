@@ -5,7 +5,6 @@ import pytest
 from glue.config import stretches
 from glue.core.roi import PolygonalROI, Projected3dROI
 from matplotlib import colormaps
-from glue.config import colormaps as glue_colormaps
 
 DATA = os.path.join(os.path.dirname(__file__), 'data')
 
